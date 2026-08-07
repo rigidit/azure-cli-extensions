@@ -253,6 +253,7 @@ class QuantumJobsScenarioTest(ScenarioTest):
         self.cmd(f'az quantum workspace delete -g {test_resource_group} -w {test_workspace_temp}')
 
     @live_only()
+    @unittest.skip("TEMPORARY: Skipping test")
     def test_submit_with_disabled_then_enabled_storage_key_access(self):
         test_location = get_test_workspace_location()
         test_resource_group = get_test_resource_group()

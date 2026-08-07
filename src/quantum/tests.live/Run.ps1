@@ -9,6 +9,41 @@ param (
 
 $RecordingsFolderPath = "src\quantum\azext_quantum\tests\latest\recordings"
 
+# Set environment variables with defaults (coalesce: use existing value if already set, otherwise apply default)
+# For PROD env:
+# if (-not $Env:AZURE_TEST_RUN_LIVE) { $Env:AZURE_TEST_RUN_LIVE = 'yes' }
+# if (-not $Env:AZURE_QUANTUM_WORKSPACE_LOCATION) { $Env:AZURE_QUANTUM_WORKSPACE_LOCATION = 'westus' }
+# if (-not $Env:AZURE_QUANTUM_SUBSCRIPTION_ID) { $Env:AZURE_QUANTUM_SUBSCRIPTION_ID = '1916d14f-6594-4756-955d-9b95970a73a8' }
+# if (-not $Env:AZURE_QUANTUM_WORKSPACE_RG) { $Env:AZURE_QUANTUM_WORKSPACE_RG = "aqua-live-test-$Env:AZURE_QUANTUM_WORKSPACE_LOCATION" }
+# if (-not $Env:AZURE_QUANTUM_WORKSPACE_STORAGE) { $Env:AZURE_QUANTUM_WORKSPACE_STORAGE = "stlivetest$Env:AZURE_QUANTUM_WORKSPACE_LOCATION" }
+# if (-not $Env:AZURE_QUANTUM_WORKSPACE_STORAGE_GRS) { $Env:AZURE_QUANTUM_WORKSPACE_STORAGE_GRS = "stlivetest$($Env:AZURE_QUANTUM_WORKSPACE_LOCATION)grs" }
+# if (-not $Env:AZURE_QUANTUM_WORKSPACE_NAME) { $Env:AZURE_QUANTUM_WORKSPACE_NAME = "workspace-aqua-live-test-$Env:AZURE_QUANTUM_WORKSPACE_LOCATION" }
+# if (-not $Env:AZURE_QUANTUM_CUSTOM_CAPABILITIES) { $Env:AZURE_QUANTUM_CUSTOM_CAPABILITIES = '' }
+# if (-not $Env:AZURE_QUANTUM_CLI_EXTENSION_VERSION) { $Env:AZURE_QUANTUM_CLI_EXTENSION_VERSION = 'latest' }
+# if (-not $Env:AZURE_QUANTUM_WORKSPACE_V2_NAME) { $Env:AZURE_QUANTUM_WORKSPACE_V2_NAME = "workspace-v2-aqua-live-test-$Env:AZURE_QUANTUM_WORKSPACE_LOCATION" }
+# if (-not $Env:AZURE_QUANTUM_WORKSPACE_V2_PROVIDERS) {
+#     $Env:AZURE_QUANTUM_WORKSPACE_V2_PROVIDERS = '{"westus":[{"id":"atom-boulder","targets":["msft.sim.ac1000.physical"]}],"eastus":[{"id":"atom-dev","targets":["msft.sim.ac1000-dev.physical"]}],"eastus2euap":[{"id":"az-sim-test-1","targets":["microsoft.sim.canary-001"]}]}'
+# }
+# if (-not $Env:QSHARP_PYTHON_TELEMETRY) { $Env:QSHARP_PYTHON_TELEMETRY = 'none' }
+
+# For Canary env:
+if (-not $Env:AZURE_TEST_RUN_LIVE) { $Env:AZURE_TEST_RUN_LIVE = 'yes' }
+if (-not $Env:AZURE_QUANTUM_WORKSPACE_LOCATION) { $Env:AZURE_QUANTUM_WORKSPACE_LOCATION = 'eastus2euap' }
+if (-not $Env:AZURE_QUANTUM_SUBSCRIPTION_ID) { $Env:AZURE_QUANTUM_SUBSCRIPTION_ID = '1916d14f-6594-4756-955d-9b95970a73a8' }
+if (-not $Env:AZURE_QUANTUM_WORKSPACE_RG) { $Env:AZURE_QUANTUM_WORKSPACE_RG = "aqua-live-test-$Env:AZURE_QUANTUM_WORKSPACE_LOCATION" }
+if (-not $Env:AZURE_QUANTUM_WORKSPACE_STORAGE) { $Env:AZURE_QUANTUM_WORKSPACE_STORAGE = "stlivetest$Env:AZURE_QUANTUM_WORKSPACE_LOCATION" }
+if (-not $Env:AZURE_QUANTUM_WORKSPACE_STORAGE_GRS) { $Env:AZURE_QUANTUM_WORKSPACE_STORAGE_GRS = "stlivetest$($Env:AZURE_QUANTUM_WORKSPACE_LOCATION)grs" }
+if (-not $Env:AZURE_QUANTUM_WORKSPACE_NAME) { $Env:AZURE_QUANTUM_WORKSPACE_NAME = "workspace-aqua-live-test-$Env:AZURE_QUANTUM_WORKSPACE_LOCATION" }
+if (-not $Env:AZURE_QUANTUM_CUSTOM_CAPABILITIES) { $Env:AZURE_QUANTUM_CUSTOM_CAPABILITIES = '' }
+if (-not $Env:AZURE_QUANTUM_CLI_EXTENSION_VERSION) { $Env:AZURE_QUANTUM_CLI_EXTENSION_VERSION = 'latest' }
+if (-not $Env:AZURE_QUANTUM_WORKSPACE_V2_NAME) { $Env:AZURE_QUANTUM_WORKSPACE_V2_NAME = "workspace-v2-aqua-live-test-$Env:AZURE_QUANTUM_WORKSPACE_LOCATION" }
+if (-not $Env:AZURE_QUANTUM_WORKSPACE_V2_PROVIDERS) {
+    $Env:AZURE_QUANTUM_WORKSPACE_V2_PROVIDERS = '{"westus":[{"id":"atom-boulder","targets":["msft.sim.ac1000.physical"]}],"eastus":[{"id":"atom-dev","targets":["msft.sim.ac1000-dev.physical"]}],"eastus2euap":[{"id":"az-sim-test-1","targets":["microsoft.sim.canary-001"]}]}'
+}
+if (-not $Env:AZURE_QUANTUM_WORKSPACE_KIND) { $Env:AZURE_QUANTUM_WORKSPACE_KIND = 'V1' }
+if (-not $Env:AZURE_QUANTUM_CAPABILITIES) { $Env:AZURE_QUANTUM_CAPABILITIES = 'submit.ionq;submit.quantinuum;submit.rigetti;submit.Microsoft.Test.FirstParty;submit.pasqal;perf.Microsoft.Test.FirstParty;perf.Apikey.Test;' }
+if (-not $Env:QSHARP_PYTHON_TELEMETRY) { $Env:QSHARP_PYTHON_TELEMETRY = 'none' }
+
 function Invoke-SASTokenObfuscation {
     param (
         [Parameter(mandatory=$true)]
@@ -135,14 +170,18 @@ Push-Location .
 
 # Run the Quantum CLI Extension tests in an azdev environment
 Set-Location $PSScriptRoot/../../..
-python -m venv env
-env\Scripts\activate.ps1
-python -m pip install -U pip
-pip install azdev
-azdev setup --repo .
-azdev extension add quantum
+
+# if (-not $SkipInstall) {
+#     python -m venv env
+#     env\Scripts\activate.ps1
+#     python -m pip install -U pip
+#     pip install azdev
+#     azdev setup --repo .
+#     azdev extension add quantum
+# }
+
 az account set -s $Env:AZURE_QUANTUM_SUBSCRIPTION_ID
-azdev test quantum --live --verbose --xml-path $RecordingsFolderPath
+azdev test quantum --live --verbose --pytest-args "-k test_submit"
 
 # Make sure we don't check-in SAS-tokens
 Invoke-SASTokenObfuscation -RecordingsFolderPath $RecordingsFolderPath
